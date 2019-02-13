@@ -96,6 +96,9 @@ img {
 button.code-folding-btn:focus {
   outline: none;
 }
+summary {
+  display: list-item;
+}
 </style>
 
 
@@ -103,14 +106,74 @@ button.code-folding-btn:focus {
 <div class="container-fluid main-container">
 
 <!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
 <script>
 $(document).ready(function () {
   window.buildTabsets("TOC");
 });
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
 </script>
 
 <!-- code folding -->
-
 
 
 
@@ -127,14 +190,38 @@ $(document).ready(function () {
 <div id="years-challenge" class="section level1">
 <h1>10 years challenge</h1>
 <p>You probably heard about #10yearschallenge and conspiracy theories about Facebook using it for training its facial recognition. If Facebook can do this, why not me? My goal in this project is to create a model that will compare two pictures to decide if both features the same person.</p>
-<div id="main-steps" class="section level2">
-<h2>Main steps</h2>
+<p><strong>Disclaimer:</strong> This is a pet project to toy with neural networks and has no intention to utilize gathered data in any harmful way.</p>
+<div id="workflow" class="section level2">
+<h2>Workflow</h2>
+<p>The project execution is controled via <code>Makefile</code>. Currently implemented steps are:</p>
 <ol style="list-style-type: decimal">
-<li>Get the images:</li>
+<li><code>get_photos</code> - scrapes instagram photos with a specified #hashtag. Done via <a href="https://github.com/rarcega/instagram-scraper"><code>instagram-scrapper</code></a></li>
+<li><code>prepare_faces</code> - utilizes <a href="https://github.com/ropenscilabs/opencv"><code>opencv</code></a> R package (R wrapper of the <a href="https://opencv.org/"><code>OpenCV</code></a> library) to detect faces and prepare faces-only data set for the model</li>
+<li><code>create_embeddings</code> -</li>
 </ol>
+</div>
+<div id="notes-on-software" class="section level2">
+<h2>Notes on software</h2>
 <ul>
-<li>Webscrapping</li>
-<li>Facebook API</li>
+<li></li>
+</ul>
+</div>
+<div id="to-do" class="section level2">
+<h2>TO DO:</h2>
+<ul>
+<li><del>Get photos</del></li>
+<li><del>Extact faces</del></li>
+<li><del>Create embeddings</del></li>
+<li>Create model performance summary function</li>
+<li>Get baseline (cosine distance of embeddings)</li>
+<li>Try few models:</li>
+<li><p>Logistic regression</p></li>
+<li>Random forest</li>
+<li>Boosting</li>
+<li>Neural nets</li>
+<li>…</li>
+<li>Try affine transformation during faces extraction step (based on eyes detection)</li>
+<li><p>Wrap it into Shiny app</p></li>
 </ul>
 </div>
 </div>
