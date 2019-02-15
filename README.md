@@ -6,11 +6,15 @@ You probably heard about #10yearschallenge and conspiracy theories about Faceboo
 
 ## Workflow
 
-The project execution is controled via `Makefile`. Currently implemented steps are:
+Most of the project execution is controled via `Makefile`. Currently implemented steps are:
 
 1. `get_photos` - scrapes instagram photos with a specified #hashtag. Done via [`instagram-scrapper`](https://github.com/rarcega/instagram-scraper).
 1. `prepare_faces` - utilizes [`opencv`](https://github.com/ropenscilabs/opencv) R package (R wrapper of the [`OpenCV`](https://opencv.org/) library) to detect faces and prepare faces-only data set for the model.
 1. `create_embeddings` - creates embedding vertors of length 128 for faces based on [Keras implementation](https://github.com/iwantooxxoox/Keras-OpenFace) of  [`OpenFace`](https://github.com/cmusatyalab/openface) library.
+1. `create_trainset` - creates training and validation set of given size and share of positive class
+1. `plot_models_diagnostics` - plots diagnostic of of models on predictions saved in `data/predictions` directory
+
+**Not in `Makfile`**: Models are developed and tested in R notebooks stored in `models/development` directory.
 
 ## Notes on software
 
