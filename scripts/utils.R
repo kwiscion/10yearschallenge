@@ -1,6 +1,11 @@
 library(tidyverse)
 library(patchwork)
 
+theme_set(theme_bw())
+scale_colour_discrete <- ggthemes::scale_color_tableau
+scale_fill_discrete <- ggthemes::scale_fill_tableau
+
+
 # For storing and loading models
 storeModel <- function(model, predict_method, name, path) {
   readr::write_rds(list(model = structure(model, class = c(name, class(model))),
@@ -74,20 +79,17 @@ plotModelDiagnostic <- function(df, target, score, model, set, mcs = 10){
                                                 legend.position = 'none')),
                       xmin = 0.45, xmax = 1.05,
                       ymin = -0.05, ymax = 0.55) +
-    theme_bw() +
     theme(legend.position = 'none')
   p_acc <- df2plots %>%
     ggplot(aes(!! score, accuracy, color = !! color, linetype = !! linetype)) +
     geom_line() +
     ggtitle('Accuracy') +
-    theme_bw() +
     theme(legend.position = 'none')
   p_pr <- df2plots %>%
     ggplot() +
     geom_line(aes(precision, tpr, color = !! color, linetype = !! linetype)) +
     ylab('recall') +
     ggtitle('Precision-recall curve') +
-    theme_bw() +
     theme(legend.position = 'none')
   p_density <- df %>%
     mutate(linetype = as.factor(!! target)) %>%
@@ -95,7 +97,6 @@ plotModelDiagnostic <- function(df, target, score, model, set, mcs = 10){
     geom_density() +
     ggtitle('Score distribution per class') +
     guides(linetype = FALSE) +
-    theme_bw() +
     theme(legend.justification=c(0,1),
           legend.position=c(0,1),
           legend.background = element_rect(color = 'black'))
