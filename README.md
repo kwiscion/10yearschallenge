@@ -20,7 +20,7 @@ The project execution is controled via `Makefile`. Currently implemented steps a
 
 ## TO DO:
 
-* ~~Get photos~~
+- [x] Get photos
 * ~~Extact faces~~
 * ~~Create embeddings~~
 * ~~Create model performance summary function~~
@@ -35,3 +35,7 @@ The project execution is controled via `Makefile`. Currently implemented steps a
 * Publish model:
   + As Shiny app
   + As API
+  
+## Current models performance
+
+![Performance](reports/models_diagnostics.png)
