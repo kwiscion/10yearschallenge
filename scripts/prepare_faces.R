@@ -1,5 +1,6 @@
 # Script splits photos into halfs and checks if each half contains a face. 
 # If so, they are cropped and moved to target directory
+
 library(purrr)
 
 # Script args:

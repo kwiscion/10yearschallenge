@@ -1,0 +1,85 @@
+---
+title: "Cosine similarity - baseline model"
+output: html_notebook
+params:
+  trainset_file: data/10yearschallenge_trainset_embeddings.csv
+  predictions_dir: data/predictions
+  models_dir: models
+---
+
+I will use cosine similarity between vectors as a baseline model.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+source('scripts/utils.R')
+
+trainset <- read_csv(params$trainset_file)
+```
+
+## Create model
+
+In this case, as cosine similarity is no *trained* model, I will create just an empty model as a placholder.
+
+```{r}
+model <- list()
+```
+
+## Store model
+
+### Create prediction method
+
+```{r}
+# Define prediction method ------------------------------------------------
+predict_method <- function(object, data) {
+  import::from(magrittr, "%>%")
+  data %>%
+    purrr::transpose() %>%
+    purrr::map_dbl(~{
+      lsa::cosine(as_vector(.x[grepl('V1_', names(.x))]), as_vector(.x[grepl('V2_', names(.x))]))
+    })
+}
+```
+
+### Store model
+
+```{r}
+model_name <- 'cosine_similarity'
+
+model_path <- sprintf('%s/%s.rds', params$models_dir, model_name)
+storeModel(model, predict_method, model_name, model_path)
+```
+
+## Evaluate model
+
+### Load model
+
+```{r}
+source('scripts/utils.R')
+model_name <- 'cosine_similarity'
+
+model_path <- sprintf('%s/%s.rds', params$models_dir, model_name)
+model <- loadModel(model_path)
+```
+
+### Predict
+
+```{r}
+predictions <- trainset %>%
+  mutate(., score = predict(model, .)) %>%
+  select(-starts_with('V')) %>%
+  mutate(model = model_name)
+
+summary(predictions)
+
+predictios_path <- sprintf('%s/%s.csv', params$predictions_dir, model_name)
+write_csv(predictions, predictios_path)
+```
+
+### Evaluate
+
+```{r echo=FALSE, fig.width=12, message=FALSE, warning=FALSE}
+plotModelDiagnostic(predictions, match, score, model, set)
+```
+
+
+

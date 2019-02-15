@@ -23,10 +23,10 @@ The project execution is controled via `Makefile`. Currently implemented steps a
 * ~~Get photos~~
 * ~~Extact faces~~
 * ~~Create embeddings~~
-* Create model performance summary function
-* Get baseline (cosine distance of embeddings)
+* ~~Create model performance summary function~~
+* ~~Get baseline (cosine distance of embeddings)~~
 * Try few models:
-  + Logistic regression
+  + ~~Logistic regression~~
   + Random forest
   + Boosting
   + Neural nets
@@ -34,4 +34,4 @@ The project execution is controled via `Makefile`. Currently implemented steps a
 * Try affine transformation during faces extraction step (based on eyes detection)
 * Publish model:
   + As Shiny app
-  * As API
+  + As API

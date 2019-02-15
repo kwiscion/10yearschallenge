@@ -1,0 +1,108 @@
+---
+title: "Cosine similarity - baseline model"
+output: html_notebook
+params:
+  trainset_file: data/10yearschallenge_trainset_embeddings.csv
+  predictions_dir: data/predictions
+  models_dir: models
+---
+
+I will use cosine similarity between vectors as a baseline model.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+source('scripts/utils.R')
+
+trainset <- read_csv(params$trainset_file)
+```
+
+```{r}
+glimpse(trainset[1:10])
+```
+
+## Create model
+
+In this case, as cosine similarity is no *trained* model, I will create just an empty model as a placholder.
+
+```{r}
+create_diffs <- . %>%
+  gather(key, val, starts_with('V')) %>%
+  separate(key, c('key', 'key2')) %>%
+  spread(key, val) %>%
+  mutate(diff = (V1 - V2)^2) %>%
+  select(-V1, -V2) %>%
+  mutate(key2 = sprintf('V_%s', key2)) %>%
+  spread(key2, diff)
+
+trainset_glm <- trainset %>%
+  create_diffs()
+```
+
+```{r}
+preds <- colnames(trainset_glm)[-c(1:4)]
+model <- glm(as.formula(sprintf('match ~ %s', paste(preds, collapse = ' + '))), data = trainset_glm[trainset_glm$set == 'train',], family = 'binomial')
+summary(model)
+```
+
+## Store model
+
+### Create prediction method
+
+```{r}
+# Define prediction method ------------------------------------------------
+predict_method <- function(object, data) {
+  import::from(magrittr, "%>%")
+  tmp <- data %>%
+    tidyr::gather(key, val, dplyr::starts_with('V')) %>%
+    tidyr::separate(key, c('key', 'key2')) %>%
+    tidyr::spread(key, val) %>%
+    dplyr::mutate(diff = (V1 - V2)^2) %>%
+    dplyr::select(-V1, -V2) %>%
+    dplyr::mutate(key2 = sprintf('V_%s', key2)) %>%
+    tidyr::spread(key2, diff) %>%
+    predict.glm(object, newdata = ., type = 'response')
+}
+```
+
+### Store model
+
+```{r}
+model_name <- 'glm_diff_squared'
+
+model_path <- sprintf('%s/%s.rds', params$models_dir, model_name)
+storeModel(model, predict_method, model_name, model_path)
+```
+
+## Evaluate model
+
+### Load model
+
+```{r}
+model_name <- 'glm_diff_squared'
+
+model_path <- sprintf('%s/%s.rds', params$models_dir, model_name)
+model <- loadModel(model_path)
+```
+
+### Predict
+
+```{r}
+predictions <- trainset %>%
+  mutate(., score = predict(model, .)) %>%
+  select(-starts_with('V')) %>%
+  mutate(model = model_name)
+
+summary(predictions)
+
+predictios_path <- sprintf('%s/%s.csv', params$predictions_dir, model_name)
+write_csv(predictions, predictios_path)
+```
+
+### Evaluate
+
+```{r fig.width=12, message=FALSE, warning=FALSE}
+plotModelDiagnostic(predictions, match, score, model, set)
+```
+
+
+

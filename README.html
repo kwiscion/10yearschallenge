@@ -195,15 +195,17 @@ $(document).ready(function () {
 <h2>Workflow</h2>
 <p>The project execution is controled via <code>Makefile</code>. Currently implemented steps are:</p>
 <ol style="list-style-type: decimal">
-<li><code>get_photos</code> - scrapes instagram photos with a specified #hashtag. Done via <a href="https://github.com/rarcega/instagram-scraper"><code>instagram-scrapper</code></a></li>
-<li><code>prepare_faces</code> - utilizes <a href="https://github.com/ropenscilabs/opencv"><code>opencv</code></a> R package (R wrapper of the <a href="https://opencv.org/"><code>OpenCV</code></a> library) to detect faces and prepare faces-only data set for the model</li>
-<li><code>create_embeddings</code> -</li>
+<li><code>get_photos</code> - scrapes instagram photos with a specified #hashtag. Done via <a href="https://github.com/rarcega/instagram-scraper"><code>instagram-scrapper</code></a>.</li>
+<li><code>prepare_faces</code> - utilizes <a href="https://github.com/ropenscilabs/opencv"><code>opencv</code></a> R package (R wrapper of the <a href="https://opencv.org/"><code>OpenCV</code></a> library) to detect faces and prepare faces-only data set for the model.</li>
+<li><code>create_embeddings</code> - creates embedding vertors of length 128 for faces based on <a href="https://github.com/iwantooxxoox/Keras-OpenFace">Keras implementation</a> of <a href="https://github.com/cmusatyalab/openface"><code>OpenFace</code></a> library.</li>
 </ol>
 </div>
 <div id="notes-on-software" class="section level2">
 <h2>Notes on software</h2>
 <ul>
-<li></li>
+<li><a href="https://github.com/rarcega/instagram-scraper"><code>instagram-scrapper</code></a> requires to have account on Instagram</li>
+<li><a href="https://github.com/ropenscilabs/opencv"><code>opencv</code></a> requires <a href="https://opencv.org/"><code>OpenCV</code></a> to be at leas version <code>3.4</code></li>
+<li>Loading of pretrained model <em>with <code>Lambda</code> layers</em> in Keras from <code>.h5</code> requires the model to be built and loaded under same vesrion (eg. <code>3.5</code> vs. <code>3.7</code>). Thus I forked <a href="https://github.com/iwantooxxoox/Keras-OpenFace">Keras-OpenFace</a> and reruned model convertion undet <code>python 3.7</code></li>
 </ul>
 </div>
 <div id="to-do" class="section level2">
@@ -212,16 +214,18 @@ $(document).ready(function () {
 <li><del>Get photos</del></li>
 <li><del>Extact faces</del></li>
 <li><del>Create embeddings</del></li>
-<li>Create model performance summary function</li>
-<li>Get baseline (cosine distance of embeddings)</li>
+<li><del>Create model performance summary function</del></li>
+<li><del>Get baseline (cosine distance of embeddings)</del></li>
 <li>Try few models:</li>
-<li><p>Logistic regression</p></li>
+<li><del>Logistic regression</del></li>
 <li>Random forest</li>
 <li>Boosting</li>
 <li>Neural nets</li>
 <li>…</li>
 <li>Try affine transformation during faces extraction step (based on eyes detection)</li>
-<li><p>Wrap it into Shiny app</p></li>
+<li>Publish model:</li>
+<li>As Shiny app</li>
+<li>As API</li>
 </ul>
 </div>
 </div>
