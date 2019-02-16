@@ -26,7 +26,7 @@ The project execution is controled via `Makefile`. Currently implemented steps a
 - [x] Create model performance summary function
 - [x] Get baseline (cosine distance of embeddings)
 - [ ] Try few models:
-  - [x] Logistic regression~~
+  - [x] Logistic regression
   - [ ] Random forest
   - [ ] Boosting
   - [ ] Neural nets

@@ -25,24 +25,37 @@ glimpse(trainset[1:10])
 In this case, as cosine similarity is no *trained* model, I will create just an empty model as a placholder.
 
 ```{r}
-create_diffs <- . %>%
-  gather(key, val, starts_with('V')) %>%
-  separate(key, c('key', 'key2')) %>%
-  spread(key, val) %>%
-  mutate(diff = (V1 - V2)^2) %>%
-  select(-V1, -V2) %>%
-  mutate(key2 = sprintf('V_%s', key2)) %>%
-  spread(key2, diff)
-
-trainset_glm <- trainset %>%
-  create_diffs()
+diff <- (trainset[grepl('V1_', colnames(trainset))] - trainset[grepl('V2_', colnames(trainset))])^2
+colnames(diff) <- gsub('V1', 'DIFF', colnames(diff))
+log_diff <- log(diff)
+colnames(log_diff) <- gsub('DIFF', 'LOG', colnames(log_diff))
+trainset_glm <- bind_cols(trainset, diff, log_diff)
 ```
 
-```{r}
-preds <- colnames(trainset_glm)[-c(1:4)]
-model <- glm(as.formula(sprintf('match ~ %s', paste(preds, collapse = ' + '))), data = trainset_glm[trainset_glm$set == 'train',], family = 'binomial')
-summary(model)
+```{r fig.width=12, message=FALSE, warning=FALSE}
+preds_all <- colnames(trainset_glm)[grep('DIFF|V1|V2|LOG', colnames(trainset_glm))]
+preds_diffs <- colnames(trainset_glm)[grep('DIFF', colnames(trainset_glm))]
+preds_logdiffs <- colnames(trainset_glm)[grep('LOG', colnames(trainset_glm))]
+
+trainset_glm %>%
+  filter(set == 'train') %>%
+  modelr::crossv_kfold(10) %>%
+  mutate(model_diffs = map(train, ~glm(as.formula(sprintf('match ~ %s', paste(preds_diffs, collapse = ' + '))), data=., family = 'binomial')),
+         model_logdiffs = map(train, ~glm(as.formula(sprintf('match ~ %s', paste(preds_logdiffs, collapse = ' + '))), data=., family = 'binomial')),
+         model_all = map(train, ~glm(as.formula(sprintf('match ~ %s', paste(preds_all, collapse = ' + '))), data=., family = 'binomial'))) %>%
+  gather(model, model_fit, starts_with('model')) %>%
+  mutate(predictions = map2(model_fit, 
+                            test, 
+                            ~data.frame(match = as.data.frame(.y)$match, 
+                                        score = predict(.x, newdata = .y, type = 'response')))) %>%
+  unnest(predictions) %>%
+  mutate(set = 'train') %>%
+  plotModelDiagnostic(match, score, model, set)
+
 ```
+
+
+
 
 ## Store model
 
@@ -51,16 +64,12 @@ summary(model)
 ```{r}
 # Define prediction method ------------------------------------------------
 predict_method <- function(object, data) {
-  import::from(magrittr, "%>%")
-  tmp <- data %>%
-    tidyr::gather(key, val, dplyr::starts_with('V')) %>%
-    tidyr::separate(key, c('key', 'key2')) %>%
-    tidyr::spread(key, val) %>%
-    dplyr::mutate(diff = (V1 - V2)^2) %>%
-    dplyr::select(-V1, -V2) %>%
-    dplyr::mutate(key2 = sprintf('V_%s', key2)) %>%
-    tidyr::spread(key2, diff) %>%
-    predict.glm(object, newdata = ., type = 'response')
+  
+diff_cols <- (data[grepl('V1_', colnames(data))] - data[grepl('V2_', colnames(data))])^2
+colnames(diff_cols) <- gsub('V1', 'DIFF', colnames(diff_cols))
+data <- bind_cols(data, tmp)
+
+predict.glm(object, newdata = data, type = 'response')
 }
 ```
 
