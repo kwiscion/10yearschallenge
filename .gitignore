@@ -6,3 +6,4 @@
 tmp/*
 photos/*
 data/*
+models/*.rds

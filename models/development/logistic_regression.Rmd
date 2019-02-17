@@ -1,5 +1,5 @@
 ---
-title: "Cosine similarity - baseline model"
+title: "Logistic regression"
 output: html_notebook
 params:
   trainset_file: data/10yearschallenge_trainset_embeddings.csv
@@ -7,7 +7,7 @@ params:
   models_dir: models
 ---
 
-I will use cosine similarity between vectors as a baseline model.
+Simplest possible approach
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 library(tidyverse)
@@ -27,35 +27,48 @@ In this case, as cosine similarity is no *trained* model, I will create just an 
 ```{r}
 diff <- (trainset[grepl('V1_', colnames(trainset))] - trainset[grepl('V2_', colnames(trainset))])^2
 colnames(diff) <- gsub('V1', 'DIFF', colnames(diff))
+sqrt_diff <- sqrt(diff)
+colnames(sqrt_diff) <- gsub('DIFF', 'SQRT', colnames(sqrt_diff))
 log_diff <- log(diff)
 colnames(log_diff) <- gsub('DIFF', 'LOG', colnames(log_diff))
-trainset_glm <- bind_cols(trainset, diff, log_diff)
+trainset_glm <- bind_cols(trainset, diff, log_diff, sqrt_diff)
 ```
 
 ```{r fig.width=12, message=FALSE, warning=FALSE}
-preds_all <- colnames(trainset_glm)[grep('DIFF|V1|V2|LOG', colnames(trainset_glm))]
+glm_custom <- function(preds, data) {
+  formula <- as.formula(sprintf('match ~ %s', paste(preds, collapse = ' + ')))
+  glm(formula, data=data, family = 'binomial')
+}
+
+preds_embeddings <- colnames(trainset_glm)[grep('V1|V2', colnames(trainset_glm))]
 preds_diffs <- colnames(trainset_glm)[grep('DIFF', colnames(trainset_glm))]
 preds_logdiffs <- colnames(trainset_glm)[grep('LOG', colnames(trainset_glm))]
+preds_sqrtdiffs <- colnames(trainset_glm)[grep('SQRT', colnames(trainset_glm))]
 
-trainset_glm %>%
+trainset_predictions <- trainset_glm %>%
   filter(set == 'train') %>%
   modelr::crossv_kfold(10) %>%
-  mutate(model_diffs = map(train, ~glm(as.formula(sprintf('match ~ %s', paste(preds_diffs, collapse = ' + '))), data=., family = 'binomial')),
-         model_logdiffs = map(train, ~glm(as.formula(sprintf('match ~ %s', paste(preds_logdiffs, collapse = ' + '))), data=., family = 'binomial')),
-         model_all = map(train, ~glm(as.formula(sprintf('match ~ %s', paste(preds_all, collapse = ' + '))), data=., family = 'binomial'))) %>%
+  mutate(model_diffs = map(train, ~glm_custom(preds_diffs, data=.)),
+         model_logdiffs = map(train, ~glm_custom(preds_logdiffs, data=.)),
+         model_sqrtdiffs = map(train, ~glm_custom(preds_sqrtdiffs, data=.)),
+         model_diffs_sqrtdiffs = map(train, ~glm_custom(c(preds_diffs, preds_sqrtdiffs), data=.)),
+         model_all = map(train, ~glm_custom(c(preds_diffs, preds_sqrtdiffs, preds_logdiffs, preds_embeddings), data=.))) %>%
   gather(model, model_fit, starts_with('model')) %>%
   mutate(predictions = map2(model_fit, 
                             test, 
                             ~data.frame(match = as.data.frame(.y)$match, 
                                         score = predict(.x, newdata = .y, type = 'response')))) %>%
-  unnest(predictions) %>%
-  mutate(set = 'train') %>%
-  plotModelDiagnostic(match, score, model, set)
+  unnest(predictions)
+  
+trainset_predictions %>%
+  plotModelDiagnostic(match, score, model, rescale_scores = TRUE)
 
 ```
 
-
-
+## Final model
+```{r}
+model <- glm_custom(preds_sqrtdiffs, data=trainset_glm %>% filter(set == 'train'))
+```
 
 ## Store model
 
@@ -65,11 +78,13 @@ trainset_glm %>%
 # Define prediction method ------------------------------------------------
 predict_method <- function(object, data) {
   
-diff_cols <- (data[grepl('V1_', colnames(data))] - data[grepl('V2_', colnames(data))])^2
-colnames(diff_cols) <- gsub('V1', 'DIFF', colnames(diff_cols))
-data <- bind_cols(data, tmp)
-
-predict.glm(object, newdata = data, type = 'response')
+  diff <- (data[grepl('V1_', colnames(data))] - data[grepl('V2_', colnames(data))])^2
+  colnames(diff) <- gsub('V1', 'DIFF', colnames(diff))
+  sqrt_diff <- sqrt(diff)
+  colnames(sqrt_diff) <- gsub('DIFF', 'SQRT', colnames(sqrt_diff))
+  data <- bind_cols(data, diff, sqrt_diff)
+  
+  predict.glm(object, newdata = data, type = 'response')
 }
 ```
 
@@ -110,7 +125,7 @@ write_csv(predictions, predictios_path)
 ### Evaluate
 
 ```{r fig.width=12, message=FALSE, warning=FALSE}
-plotModelDiagnostic(predictions, match, score, model, set)
+plotModelDiagnostic(predictions, match, score, model)
 ```
 
 

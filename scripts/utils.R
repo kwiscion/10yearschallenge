@@ -30,37 +30,29 @@ fastAUC <- function(target, score) {
   return(auc)
 }
 # Model diagnostic function
-plotModelDiagnostic <- function(df, target, score, model, set, mcs = 10){
+plotModelDiagnostic <- function(df, target, score, model, mcs = 10, rescale_scores = FALSE){
   target <- enquo(target)
   score <- enquo(score)
+  score_name <- quo_name(score)
   model <- enquo(model)
-  set <- enquo(set)
   
-  n_models <- df %>% ungroup() %>% summarise(n = n_distinct(!! model)) %>% pull(n)
-  if(n_models == 1) {
-    n_col <- 2
-    color <- set
-    linetype <- '1'
-  } else {
-    n_col <- 1
-    color <- model
-    linetype <- set
-  }
+  if(rescale_scores) df <- df %>% group_by(model) %>% mutate(!! score_name := ((!! score) - min(!! score))/(max(!! score) - min(!! score))) %>% ungroup()
+  
+  color <- model
   
   p_auc <- df %>%
     mutate(foo = 1) %>%
     inner_join(data.frame(mcs = 1:mcs, foo = 1), by = 'foo') %>%
-    group_by(!! model, !! set, mcs) %>%
+    group_by(!! model, mcs) %>%
     sample_frac(1, replace = T) %>%
     summarise(auc = fastAUC(!! target, !! score)) %>%
     ggplot(aes(!! model, auc, color = !! color)) +
     geom_boxplot() +
-    ggtitle('Area under curve') +
-    facet_wrap(set, ncol = n_col)
+    ggtitle('Area under curve')
   
   
   df2plots <- df %>%
-    group_by(!! set, !! model, !! score)  %>%
+    group_by(!! model, !! score)  %>%
     summarise(positive = sum(!! target),
               negative = sum((!! target) == 0)) %>%
     arrange(desc(!! score)) %>%
@@ -70,7 +62,7 @@ plotModelDiagnostic <- function(df, target, score, model, set, mcs = 10){
            precision = cumsum(positive)/cumsum(positive + negative))
   
   p_roc <- df2plots %>%
-    ggplot(aes(fpr, tpr, color = !! color, linetype = !! linetype)) +
+    ggplot(aes(fpr, tpr, color = !! color)) +
     geom_line() +
     ggtitle('Receiver operating characteristic') +
     annotation_custom(grob = ggplotGrob(p_auc + 
@@ -81,25 +73,24 @@ plotModelDiagnostic <- function(df, target, score, model, set, mcs = 10){
                       ymin = -0.05, ymax = 0.55) +
     theme(legend.position = 'none')
   p_acc <- df2plots %>%
-    ggplot(aes(!! score, accuracy, color = !! color, linetype = !! linetype)) +
+    ggplot(aes(!! score, accuracy, color = !! color)) +
     geom_line() +
     ggtitle('Accuracy') +
     theme(legend.position = 'none')
   p_pr <- df2plots %>%
     ggplot() +
-    geom_line(aes(precision, tpr, color = !! color, linetype = !! linetype)) +
-    ylab('recall') +
+    geom_line(aes(tpr, precision, color = !! color)) +
+    xlab('recall') +
     ggtitle('Precision-recall curve') +
-    theme(legend.position = 'none')
+    theme(legend.justification=c(1,1),
+          legend.position=c(1,1),
+          legend.background = element_rect(color = 'black'))
   p_density <- df %>%
     mutate(linetype = as.factor(!! target)) %>%
     ggplot(aes(score, color = !! color, linetype = linetype)) +
     geom_density() +
     ggtitle('Score distribution per class') +
-    guides(linetype = FALSE) +
-    theme(legend.justification=c(0,1),
-          legend.position=c(0,1),
-          legend.background = element_rect(color = 'black'))
+    theme(legend.position = 'none')
   
   (p_roc + p_acc + p_pr + p_density) +
     plot_layout(ncol = 2)
