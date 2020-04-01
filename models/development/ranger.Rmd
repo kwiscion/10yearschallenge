@@ -1,0 +1,129 @@
+---
+title: "Random forest"
+output: html_notebook
+params:
+  trainset_file: data/10yearschallenge_trainset_embeddings.csv
+  predictions_dir: data/predictions
+  models_dir: models
+---
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+source('scripts/utils.R')
+
+trainset <- read_csv(params$trainset_file)
+```
+
+```{r}
+glimpse(trainset[1:10])
+```
+
+## Create model
+
+```{r}
+diff <- (trainset[grepl('V1_', colnames(trainset))] - trainset[grepl('V2_', colnames(trainset))])^2
+colnames(diff) <- gsub('V1', 'DIFF', colnames(diff))
+sqrt_diff <- sqrt(diff)
+colnames(sqrt_diff) <- gsub('DIFF', 'SQRT', colnames(sqrt_diff))
+log_diff <- log(diff)
+colnames(log_diff) <- gsub('DIFF', 'LOG', colnames(log_diff))
+trainset_ranger <- bind_cols(trainset, diff, log_diff, sqrt_diff)
+```
+
+```{r fig.width=12, message=FALSE, warning=FALSE}
+library(ranger)
+ranger_custom <- function(preds, data) {
+  formula <- as.formula(sprintf('match ~ %s', paste(preds, collapse = ' + ')))
+  ranger(formula, data=data, probability = TRUE)
+}
+
+preds_embeddings <- colnames(trainset_ranger)[grep('V1|V2', colnames(trainset_ranger))]
+preds_diffs <- colnames(trainset_ranger)[grep('DIFF', colnames(trainset_ranger))]
+preds_logdiffs <- colnames(trainset_ranger)[grep('LOG', colnames(trainset_ranger))]
+preds_sqrtdiffs <- colnames(trainset_ranger)[grep('SQRT', colnames(trainset_ranger))]
+
+trainset_predictions <- trainset_ranger %>%
+  filter(set == 'train') %>%
+  # sample_n(100) %>%                          
+  modelr::crossv_kfold(10) %>%
+  mutate(model_diffs = map(train, ~ranger_custom(preds_diffs, data=as.data.frame(.x))),
+         model_logdiffs = map(train, ~ranger_custom(preds_logdiffs, data=as.data.frame(.x))),
+         model_sqrtdiffs = map(train, ~ranger_custom(preds_sqrtdiffs, data=as.data.frame(.x))),
+         model_diffs_sqrtdiffs = map(train, ~ranger_custom(c(preds_diffs, preds_sqrtdiffs), data=as.data.frame(.x))),
+         model_all = map(train, ~ranger_custom(c(preds_diffs, preds_sqrtdiffs, preds_logdiffs, preds_embeddings), data=as.data.frame(.x)))) %>%
+  gather(model, model_fit, starts_with('model')) %>%
+  mutate(predictions = map2(model_fit, 
+                            test, 
+                            ~data.frame(match = as.data.frame(.y)$match, 
+                                        score = predict(.x, data = as.data.frame(.y))$predictions[,2]))) %>%
+  unnest(predictions)
+  
+trainset_predictions %>%
+  plotModelDiagnostic(match, score, model, rescale_scores = TRUE)
+
+```
+
+## Final model
+```{r}
+model <- ranger_custom(preds_diffs, data=trainset_ranger %>% filter(set == 'train'))
+```
+
+## Store model
+
+### Create prediction method
+
+```{r}
+# Define prediction method ------------------------------------------------
+predict_method <- function(object, data) {
+  
+  diff <- (data[grepl('V1_', colnames(data))] - data[grepl('V2_', colnames(data))])^2
+  colnames(diff) <- gsub('V1', 'DIFF', colnames(diff))
+  data <- bind_cols(data, diff)
+  
+  ranger:::predict.ranger(object, data = data)$predictions[,2]
+}
+```
+
+### Store model
+
+```{r}
+model_name <- 'ranger_diff'
+
+model_path <- sprintf('%s/%s.rds', params$models_dir, model_name)
+storeModel(model, predict_method, model_name, model_path)
+```
+
+## Evaluate model
+
+### Load model
+
+```{r}
+model_name <- 'ranger_diff'
+
+model_path <- sprintf('%s/%s.rds', params$models_dir, model_name)
+model <- loadModel(model_path)
+```
+
+### Predict
+
+```{r}
+predictions <- trainset %>%
+  mutate(., score = predict(model, .)) %>%
+  select(-starts_with('V')) %>%
+  mutate(model = model_name)
+
+summary(predictions)
+
+predictios_path <- sprintf('%s/%s.csv', params$predictions_dir, model_name)
+write_csv(predictions, predictios_path)
+```
+
+### Evaluate
+
+```{r fig.width=12, message=FALSE, warning=FALSE}
+plotModelDiagnostic(predictions, match, score, model)
+```
+
+
+

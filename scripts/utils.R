@@ -36,7 +36,7 @@ plotModelDiagnostic <- function(df, target, score, model, mcs = 10, rescale_scor
   score_name <- quo_name(score)
   model <- enquo(model)
   
-  if(rescale_scores) df <- df %>% group_by(model) %>% mutate(!! score_name := ((!! score) - min(!! score))/(max(!! score) - min(!! score))) %>% ungroup()
+  if(rescale_scores) df <- df %>% group_by(!! model) %>% mutate(!! score_name := ((!! score) - min(!! score))/(max(!! score) - min(!! score))) %>% ungroup()
   
   color <- model
   
@@ -63,10 +63,10 @@ plotModelDiagnostic <- function(df, target, score, model, mcs = 10, rescale_scor
   
   p_roc <- df2plots %>%
     ggplot(aes(fpr, tpr, color = !! color)) +
-    geom_line() +
+    geom_line(size = 2) +
     ggtitle('Receiver operating characteristic') +
     annotation_custom(grob = ggplotGrob(p_auc + 
-                                          theme_bw(7) +
+                                          theme_bw(9) +
                                           theme(plot.background = element_rect(colour = "black"),
                                                 legend.position = 'none')),
                       xmin = 0.45, xmax = 1.05,
@@ -74,12 +74,12 @@ plotModelDiagnostic <- function(df, target, score, model, mcs = 10, rescale_scor
     theme(legend.position = 'none')
   p_acc <- df2plots %>%
     ggplot(aes(!! score, accuracy, color = !! color)) +
-    geom_line() +
+    geom_line(size = 2) +
     ggtitle('Accuracy') +
     theme(legend.position = 'none')
   p_pr <- df2plots %>%
     ggplot() +
-    geom_line(aes(tpr, precision, color = !! color)) +
+    geom_line(aes(tpr, precision, color = !! color), size = 2) +
     xlab('recall') +
     ggtitle('Precision-recall curve') +
     theme(legend.justification=c(1,1),
@@ -87,8 +87,8 @@ plotModelDiagnostic <- function(df, target, score, model, mcs = 10, rescale_scor
           legend.background = element_rect(color = 'black'))
   p_density <- df %>%
     mutate(linetype = as.factor(!! target)) %>%
-    ggplot(aes(score, color = !! color, linetype = linetype)) +
-    geom_density() +
+    ggplot(aes(!! score, color = !! color, linetype = linetype)) +
+    geom_density(size = 2) +
     ggtitle('Score distribution per class') +
     theme(legend.position = 'none')
   

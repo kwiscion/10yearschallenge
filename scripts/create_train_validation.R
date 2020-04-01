@@ -41,3 +41,15 @@ data.frame(face1 = sample(faces$face, total_size * margin, replace = T),
   mutate(set = sample(c(rep('train', train_size), rep('validation', validation_size)),
                       train_size + validation_size, replace = FALSE)) %>%
   write_csv(output_file)
+
+
+expand.grid(face1 = faces$face, 
+            face2 = faces$face,
+            stringsAsFactors = FALSE) %>%
+  filter(face1 != face2) %>%
+  mutate(match = as.numeric(face1 == other_face(face2))) %>%
+  group_by(face1, face2) %>%
+  filter(n() == 1) %>%
+  ungroup() %>%
+  filter(face1 > face2) %>%
+  write_csv(output_file)

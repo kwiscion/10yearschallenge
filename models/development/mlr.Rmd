@@ -1,0 +1,137 @@
+---
+title: "Test few models with MLR"
+output: html_notebook
+params:
+  trainset_file: data/10yearschallenge_trainset_embeddings.csv
+  predictions_dir: data/predictions
+  models_dir: models
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+source('scripts/utils.R')
+
+trainset <- read_csv(params$trainset_file)
+```
+
+```{r}
+glimpse(trainset[1:10])
+```
+
+## Create model
+
+In this case, as cosine similarity is no *trained* model, I will create just an empty model as a placholder.
+
+```{r}
+diff <- (trainset[grepl('V1_', colnames(trainset))] - trainset[grepl('V2_', colnames(trainset))])^2
+colnames(diff) <- gsub('V1', 'DIFF', colnames(diff))
+sqrt_diff <- sqrt(diff)
+colnames(sqrt_diff) <- gsub('DIFF', 'SQRT', colnames(sqrt_diff))
+trainset_transformed <- bind_cols(trainset, diff, sqrt_diff)
+```
+
+```{r}
+library(mlr)
+library(parallelMap)
+```
+
+
+```{r fig.width=12, message=FALSE, warning=FALSE}
+task <- makeClassifTask(id = 'taskFaces', 
+                        data = trainset_transformed %>% filter(set == 'train') %>% select(-face1, -face2, -set) %>% mutate(match = as.factor(match)),
+                        target = 'match',
+                        positive = '1')
+rdesc <- makeResampleDesc("CV", iters = 3L)
+meas <- list(auc)
+ctrl <- makeTuneControlRandom(maxit = parallel::detectCores() * 2)
+# ctrl <- makeTuneControlCMAES(budget = 100L)
+
+parallelStartSocket(cpus = parallel::detectCores(),  level = 'mlr.tuneParams')
+bmr <- list(makeTuneWrapper(learner = makeLearner("classif.ranger", predict.type = "prob"),
+                            resampling = rdesc,
+                            measures = meas,
+                            par.set = makeParamSet(makeIntegerParam("num.trees", lower = 100L, upper = 500L),
+                                                   makeNumericParam('sample.fraction', lower = 0.2, upper = 1)), 
+                            control = ctrl),
+            makeTuneWrapper(learner = makeLearner("classif.ada", 
+                                                  predict.type = "prob"),
+                            resampling = rdesc,
+                            measures = meas,
+                            par.set = makeParamSet(makeIntegerParam('iter', lower = 50, upper = 500),
+                                                   makeNumericParam('nu', lower = -4, upper = 0, trafo = function(x) 2 * 10^x),
+                                                   makeNumericParam('bag.frac', lower = 0.3, upper = 0.9)), 
+                            control = ctrl)) %>%
+  benchmark(tasks = task, resamplings = rdesc, measures = auc, 
+            show.info = TRUE)
+parallelStop()
+
+bmr
+```
+
+## Final model
+```{r}
+model <- glm_custom(preds_sqrtdiffs, data=trainset_glm %>% filter(set == 'train'))
+```
+
+## Store model
+
+### Create prediction method
+
+```{r}
+# Define prediction method ------------------------------------------------
+predict_method <- function(object, data) {
+  
+  diff <- (data[grepl('V1_', colnames(data))] - data[grepl('V2_', colnames(data))])^2
+  colnames(diff) <- gsub('V1', 'DIFF', colnames(diff))
+  sqrt_diff <- sqrt(diff)
+  colnames(sqrt_diff) <- gsub('DIFF', 'SQRT', colnames(sqrt_diff))
+  data <- bind_cols(data, diff, sqrt_diff)
+  
+  predict.glm(object, newdata = data, type = 'response')
+}
+```
+
+### Store model
+
+```{r}
+model_name <- 'glm_diff_squared'
+
+model_path <- sprintf('%s/%s.rds', params$models_dir, model_name)
+storeModel(model, predict_method, model_name, model_path)
+```
+
+## Evaluate model
+
+### Load model
+
+```{r}
+model_name <- 'glm_diff_squared'
+
+model_path <- sprintf('%s/%s.rds', params$models_dir, model_name)
+model <- loadModel(model_path)
+```
+
+### Predict
+
+```{r}
+predictions <- trainset %>%
+  mutate(., score = predict(model, .)) %>%
+  select(-starts_with('V')) %>%
+  mutate(model = model_name)
+
+summary(predictions)
+
+predictios_path <- sprintf('%s/%s.csv', params$predictions_dir, model_name)
+write_csv(predictions, predictios_path)
+```
+
+### Evaluate
+
+```{r fig.width=12, message=FALSE, warning=FALSE}
+plotModelDiagnostic(predictions, match, score, model)
+```
+
+
+
